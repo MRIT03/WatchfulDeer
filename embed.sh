@@ -1,11 +1,14 @@
 #!/bin/bash
 
-# Prompt the user for input
-echo "Enter the cover file (e.g., coverfile.jpg):"
-read coverfile
+# Check if the correct number of arguments is provided
+if [ "$#" -ne 2 ]; then
+    echo "Usage: $0 coverfile text"
+    exit 1
+fi
 
-echo "Enter the text you want to embed:"
-read secret_text
+# Assign arguments to variables
+coverfile=$1
+secret_text=$2
 
 # Create a temporary file to hold the secret text
 tempfile=$(mktemp)
@@ -18,9 +21,9 @@ steghide embed -cf "$coverfile" -ef "$tempfile"
 
 # Confirm the embedding process
 if [ $? -eq 0 ]; then
-  echo "Text embedded successfully into $coverfile."
+    echo "Text embedded successfully into $coverfile."
 else
-  echo "Failed to embed text."
+    echo "Failed to embed text."
 fi
 
 # Clean up the temporary file
