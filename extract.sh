@@ -1,19 +1,19 @@
 #!/bin/bash
 
 # Check if the correct number of arguments is provided
-if [ "$#" -ne 1 ]; then
+if [ "$#" -ne 2 ]; then
     echo "Usage: $0 coverfile"
     exit 1
 fi
 
 # Assign arguments to variables
 coverfile=$1
-
+passphrase=$2
 # Create a temporary file to hold the extracted text
 tempfile=$(mktemp)
 
 # Extract the hidden text using Steghide
-steghide extract -sf "$coverfile" -xf "$tempfile"
+steghide extract -sf "$coverfile" -xf "$tempfile" -p "$passphrase"
 
 # Confirm the extraction process
 if [ $? -eq 0 ]; then

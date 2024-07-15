@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Path to store the password list
-password_file="passwords.txt"
+password_file="passwords"
 
 # Function to initialize the password file if it doesn't exist
 initialize_file() {
@@ -21,7 +21,7 @@ add_password() {
 
     local new_entry="$1"
     local app_name=$(echo "$new_entry" | awk -F, '{print $1}' | xargs | tr '[:upper:]' '[:lower:]')
-    local password=$(echo "$new_entry" | awk -F, '{print $2}' | xargs)
+    local file_where_password_is_stored=$(echo "$new_entry" | awk -F, '{print $2}' | xargs)
     local expiration_date=$(echo "$new_entry" | awk -F, '{print $3}' | xargs)
 
     # Check if the app already exists (case insensitive)

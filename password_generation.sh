@@ -43,19 +43,36 @@ generate_password() {
     local expiration_date=$(generate_expiration_date $security_level)
     local password=$(generate_random_password)
     local picture=$(get_random_picture)
-    local embed_password=$(generate_random_password) # Password for embedding
+    local embed_password="Riad" # Password for embedding
+
+    # Check if the picture file exists
+    if [ ! -f "$picture" ]; then
+        echo "The cover file '$picture' does not exist."
+        exit 1
+    fi
 
     # Embed the password in the picture using the embed_password
-    ./embed.sh $picture "$password" "$embed_password"
+    ./embed.sh "$picture" "$password" "$embed_password"
     if [ $? -eq 0 ]; then
         # Remove the used picture from the list
-        remove_picture_from_list "$picture"
-        # Output the result
-        local output="$app_name:$picture:$expiration_date:$embed_password"
-        echo "$output" >> passwords.txt
+        remove_picture_from_list "$(basename $picture)"
+        # Prepare the new entry
+        local new_entry="$app_name:$(basename $picture):$expiration_date"
+
+        # Check if the app already exists
+        if grep -qi "^$app_name:" passwords; then
+            # Update the existing entry
+            sed -i "s/^$app_name:.*/$new_entry/I" passwords
+            echo "Updated: $new_entry"
+        else
+            # Add the new entry
+            echo "$new_entry" >> passwords
+            echo "Added: $new_entry"
+        fi
+
         # Send the result to track_expirations.sh
-        ./track_expirations.sh add "$output"
-        echo "Generated: $output"
+        ./track_expirations.sh add "$new_entry"
+        echo "Generated: $new_entry"
     else
         echo "Failed to embed password in picture."
         exit 1
@@ -66,7 +83,7 @@ generate_password() {
 change_password() {
     local app_name=$1
     local new_password=$2
-    local entry=$(grep "^$app_name:" passwords.txt)
+    local entry=$(grep "^$app_name:" passwords)
     if [ -z "$entry" ]; then
         echo "App name not found."
         exit 1
@@ -77,7 +94,7 @@ change_password() {
     local embed_password=$(echo $entry | cut -d':' -f4)
 
     # Extract the old password
-    ./extract.sh "$picture" "$embed_password"
+    ./extract.sh "$HOME/Pictures/Harhour_and_chase/$picture" "$embed_password"
 
     # Add the picture back to the available list
     add_picture_to_list "$picture"
@@ -89,7 +106,7 @@ change_password() {
 # Function to delete an entry
 delete_entry() {
     local app_name=$1
-    local entry=$(grep "^$app_name:" passwords.txt)
+    local entry=$(grep "^$app_name:" passwords)
     if [ -z "$entry" ]; then
         echo "App name not found."
         exit 1
@@ -99,14 +116,14 @@ delete_entry() {
     local embed_password=$(echo $entry | cut -d':' -f4)
 
     # Extract the old password
-    ./extract.sh "$picture" "$embed_password"
+    ./extract.sh "$HOME/Pictures/Harhour_and_chase/$picture" "$embed_password"
 
     # Add the picture back to the available list
     add_picture_to_list "$picture"
 
-    # Remove the entry from passwords.txt
-    grep -v "^$app_name:" passwords.txt > passwords.tmp
-    mv passwords.tmp passwords.txt
+    # Remove the entry from passwords
+    grep -v "^$app_name:" passwords > passwords.tmp
+    mv passwords.tmp passwords
 }
 
 # Main script logic

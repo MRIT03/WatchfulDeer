@@ -22,7 +22,7 @@ tempfile=$(mktemp)
 echo "$secret_text" > "$tempfile"
 
 # Embed the text into the cover file using Steghide
-steghide embed -cf "$coverfile" -ef "$tempfile" -p "$password"
+steghide embed -cf "$coverfile" -ef "$tempfile" -p "Riad"
 
 # Confirm the embedding process
 if [ $? -eq 0 ]; then
