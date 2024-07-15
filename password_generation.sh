@@ -36,19 +36,36 @@ add_picture_to_list() {
     echo $picture >> available_pictures
 }
 
+# Function to read the common steghide password
+read_steghide_password() {
+    passphrase=$1
+    password=$(./encrypt_decrypt.sh -d "$passphrase")
+    if [ $? -ne 0 ]; then
+        echo "Failed to decrypt the steghide password."
+        exit 1
+    fi
+    echo "$password"
+}
+
 # Function to generate a password and embed it in a picture
 generate_password() {
     local app_name=$1
     local security_level=$2
+    local passphrase=$3
     local expiration_date=$(generate_expiration_date $security_level)
     local password=$(generate_random_password)
     local picture=$(get_random_picture)
-    local embed_password="Riad" # Password for embedding
+    local embed_password=$(read_steghide_password "$passphrase") # Use the decrypted steghide password
 
-    # Check if the picture file exists
-    if [ ! -f "$picture" ]; then
-        echo "The cover file '$picture' does not exist."
-        exit 1
+    # Check if an entry already exists for the app name
+    local entry=$(grep "^$app_name:" passwords)
+    if [ -n "$entry" ]; then
+        local old_picture=$(echo $entry | cut -d':' -f2)
+        # Add the old picture back to the available list
+        add_picture_to_list "$old_picture"
+        # Remove the old entry
+        grep -v "^$app_name:" passwords > passwords.tmp
+        mv passwords.tmp passwords
     fi
 
     # Embed the password in the picture using the embed_password
@@ -56,23 +73,50 @@ generate_password() {
     if [ $? -eq 0 ]; then
         # Remove the used picture from the list
         remove_picture_from_list "$(basename $picture)"
-        # Prepare the new entry
-        local new_entry="$app_name:$(basename $picture):$expiration_date"
-
-        # Check if the app already exists
-        if grep -qi "^$app_name:" passwords; then
-            # Update the existing entry
-            sed -i "s/^$app_name:.*/$new_entry/I" passwords
-            echo "Updated: $new_entry"
-        else
-            # Add the new entry
-            echo "$new_entry" >> passwords
-            echo "Added: $new_entry"
-        fi
-
+        # Output the result
+        local output="$app_name:$(basename $picture):$expiration_date"
+        echo "$output" >> passwords
         # Send the result to track_expirations.sh
-        ./track_expirations.sh add "$new_entry"
-        echo "Generated: $new_entry"
+        ./track_expirations.sh add "$output"
+        echo "Generated: $output"
+    else
+        echo "Failed to embed password in picture."
+        exit 1
+    fi
+}
+
+# Function to add or change a password
+add_or_change_password() {
+    local app_name=$1
+    local password=$2
+    local security_level=$3
+    local passphrase=$4
+    local expiration_date=$(generate_expiration_date $security_level)
+    local picture=$(get_random_picture)
+    local embed_password=$(read_steghide_password "$passphrase") # Use the decrypted steghide password
+
+    # Check if an entry already exists for the app name
+    local entry=$(grep "^$app_name:" passwords)
+    if [ -n "$entry" ]; then
+        local old_picture=$(echo $entry | cut -d':' -f2)
+        # Add the old picture back to the available list
+        add_picture_to_list "$old_picture"
+        # Remove the old entry
+        grep -v "^$app_name:" passwords > passwords.tmp
+        mv passwords.tmp passwords
+    fi
+
+    # Embed the password in the picture using the embed_password
+    ./embed.sh "$picture" "$password" "$embed_password"
+    if [ $? -eq 0 ]; then
+        # Remove the used picture from the list
+        remove_picture_from_list "$(basename $picture)"
+        # Output the result
+        local output="$app_name:$(basename $picture):$expiration_date"
+        echo "$output" >> passwords
+        # Send the result to track_expirations.sh
+        ./track_expirations.sh add "$output"
+        echo "Added/Changed: $output"
     else
         echo "Failed to embed password in picture."
         exit 1
@@ -83,6 +127,7 @@ generate_password() {
 change_password() {
     local app_name=$1
     local new_password=$2
+    local passphrase=$3
     local entry=$(grep "^$app_name:" passwords)
     if [ -z "$entry" ]; then
         echo "App name not found."
@@ -90,8 +135,7 @@ change_password() {
     fi
 
     local picture=$(echo $entry | cut -d':' -f2)
-    local expiration_date=$(echo $entry | cut -d':' -f3)
-    local embed_password=$(echo $entry | cut -d':' -f4)
+    local embed_password=$(read_steghide_password "$passphrase") # Use the decrypted steghide password
 
     # Extract the old password
     ./extract.sh "$HOME/Pictures/Harhour_and_chase/$picture" "$embed_password"
@@ -100,12 +144,13 @@ change_password() {
     add_picture_to_list "$picture"
 
     # Generate new password and embed it in a picture
-    generate_password "$app_name" "$new_password"
+    generate_password "$app_name" "$new_password" "$passphrase"
 }
 
 # Function to delete an entry
 delete_entry() {
     local app_name=$1
+    local passphrase=$2
     local entry=$(grep "^$app_name:" passwords)
     if [ -z "$entry" ]; then
         echo "App name not found."
@@ -113,10 +158,6 @@ delete_entry() {
     fi
 
     local picture=$(echo $entry | cut -d':' -f2)
-    local embed_password=$(echo $entry | cut -d':' -f4)
-
-    # Extract the old password
-    ./extract.sh "$HOME/Pictures/Harhour_and_chase/$picture" "$embed_password"
 
     # Add the picture back to the available list
     add_picture_to_list "$picture"
@@ -129,28 +170,35 @@ delete_entry() {
 # Main script logic
 case "$1" in
     -g)
-        if [ "$#" -ne 3 ]; then
-            echo "Usage: $0 -g app_name security_level"
+        if [ "$#" -ne 4 ]; then
+            echo "Usage: $0 -g app_name security_level passphrase"
             exit 1
         fi
-        generate_password "$2" "$3"
+        generate_password "$2" "$3" "$4"
+        ;;
+    -a)
+        if [ "$#" -ne 5 ]; then
+            echo "Usage: $0 -a app_name password security_level passphrase"
+            exit 1
+        fi
+        add_or_change_password "$2" "$3" "$4" "$5"
         ;;
     -c)
-        if [ "$#" -ne 3 ]; then
-            echo "Usage: $0 -c app_name new_password"
+        if [ "$#" -ne 4 ]; then
+            echo "Usage: $0 -c app_name new_password passphrase"
             exit 1
         fi
-        change_password "$2" "$3"
+        change_password "$2" "$3" "$4"
         ;;
     -d)
-        if [ "$#" -ne 2 ]; then
-            echo "Usage: $0 -d app_name"
+        if [ "$#" -ne 3 ]; then
+            echo "Usage: $0 -d app_name passphrase"
             exit 1
         fi
-        delete_entry "$2"
+        delete_entry "$2" "$3"
         ;;
     *)
-        echo "Usage: $0 {-g app_name security_level | -c app_name new_password | -d app_name}"
+        echo "Usage: $0 {-g app_name security_level passphrase | -a app_name password security_level passphrase | -c app_name new_password passphrase | -d app_name passphrase}"
         exit 1
         ;;
 esac

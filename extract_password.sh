@@ -1,53 +1,59 @@
 #!/bin/bash
 
-# Path to the password list file
-password_file="passwords"
-
-# Function to initialize the password file if it doesn't exist
-initialize_file() {
-    if [[ ! -f $password_file ]]; then
-        touch $password_file
-    fi
-}
-
-# Function to extract the password for a given application
-extract_password() {
-    initialize_file
-
-    local app_name="$1"
-    local app_name_lower=$(echo "$app_name" | tr '[:upper:]' '[:lower:]' | xargs)
-
-    # Find the entry in the passwords file
-    local entry=$(grep -i "^$app_name_lower:" $password_file)
-
-    if [[ -z "$entry" ]]; then
-        echo "Application '$app_name' not found in the passwords file."
-        exit 1
-    fi
-
-    # Extract the file and expiration date from the entry
-    local file_where_password_is_stored=$(echo "$entry" | cut -d':' -f2)
-    local expiration_date=$(echo "$entry" | cut -d':' -f3)
-
-    # Prompt the user for the steghide password
-    read -sp "Enter the steghide password for $file_where_password_is_stored: " steghide_password
-
-    # Extract the password using extract.sh
-    extracted_password=$(./extract.sh "$HOME/Pictures/Harhour_and_chase/$file_where_password_is_stored" "$steghide_password")
-
-    if [[ $? -eq 0 ]]; then
-        echo "Extracted password for '$app_name': $extracted_password"
-    else
-        echo "Failed to extract the password. Please check the steghide password and try again."
-        exit 1
-    fi
-}
-
-# Main script logic
-if [[ "$#" -ne 1 ]]; then
-    echo "Usage: $0 app_name"
+# Check if the correct number of arguments is provided
+if [ "$#" -ne 2 ]; then
+    echo "Usage: $0 app_name passphrase"
     exit 1
 fi
 
-extract_password "$1"
+# Assign arguments to variables
+app_name=$1
+passphrase=$2
+
+# Find the cover file associated with the app name
+entry=$(grep "^$app_name:" passwords)
+if [ -z "$entry" ]; then
+    echo "App name not found."
+    exit 1
+fi
+
+coverfile=$(echo $entry | cut -d':' -f2)
+if [ -z "$coverfile" ]; then
+    echo "Cover file not found for app name $app_name."
+    exit 1
+fi
+
+coverfile_path="$HOME/Pictures/Harhour_and_chase/$coverfile"
+
+# Check if the cover file exists
+if [ ! -f "$coverfile_path" ]; then
+    echo "Cover file '$coverfile_path' does not exist."
+    exit 1
+fi
+
+# Create a temporary file to hold the extracted text
+tempfile=$(mktemp)
+
+# Get the common steghide password from the encrypted file
+steghide_password=$(./encrypt_decrypt.sh -d "$passphrase")
+if [ $? -ne 0 ]; then
+    echo "Failed to decrypt the steghide password."
+    rm "$tempfile"
+    exit 1
+fi
+
+# Extract the hidden text using Steghide
+steghide extract -sf "$coverfile_path" -xf "$tempfile" -p "$steghide_password"
+
+# Confirm the extraction process
+if [ $? -eq 0 ]; then
+    echo "Text extracted successfully."
+    echo "Extracted text:"
+    cat "$tempfile"
+else
+    echo "Failed to extract text from '$coverfile_path'."
+fi
+
+# Clean up the temporary file
+rm "$tempfile"
 
