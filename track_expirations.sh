@@ -43,20 +43,31 @@ add_password() {
 
 # Function to check and remove expired passwords
 check_expirations() {
-    initialize_file
+    today=$(date +%Y-%m-%d)
+    week_later=$(date -d "$today + 7 days" +%Y-%m-%d)
+    
+    expired_apps=()
+    expiring_soon_apps=()
 
-    local current_date=$(date +"%Y-%m-%d")
-    while read -r line; do
-        local expiration_date=$(echo "$line" | awk -F, '{print $3}' | xargs)
-        if [[ "$expiration_date" < "$current_date" ]]; then
-            echo "Removing expired password: $line"
-            sed -i "/$line/d" $password_file
-        else
-            break
+    while IFS=: read -r app_name coverfile expiration_date; do
+        if [[ "$expiration_date" < "$today" ]]; then
+            expired_apps+=("$app_name")
+        elif [[ "$expiration_date" < "$week_later" ]]; then
+            expiring_soon_apps+=("$app_name")
         fi
-    done < $password_file
-}
+    done < passwords
 
+    if [[ ${#expired_apps[@]} -gt 0 ]]; then
+        notify-send "Expired Passwords" "The following passwords have expired: ${expired_apps[*]}"
+    fi
+
+    if [[ ${#expiring_soon_apps[@]} -gt 0 ]]; then
+        notify-send "Expiring Soon Passwords" "The following passwords will expire within a week: ${expiring_soon_apps[*]}"
+    fi
+
+    echo "Expired: ${expired_apps[*]}"
+    echo "Expiring soon: ${expiring_soon_apps[*]}"
+}
 # Main logic
 case "$1" in
     add)
