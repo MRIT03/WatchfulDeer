@@ -3,7 +3,7 @@
 # File containing the bcrypt hash
 HASH_FILE="users"
 # Log file to store the last authentication date
-AUTH_LOG_FILE="auth.log"
+AUTH_LOG_FILE="$HOME/code/WatchfulDeer/auth.log"
 
 # Function to check if a password matches a hash
 check_password() {
