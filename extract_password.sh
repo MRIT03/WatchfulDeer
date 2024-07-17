@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Set the base directory
+BASE_DIR="$HOME/code/WatchfulDeer"
+PICTURES_DIR="$HOME/Pictures/Harhour_and_chase"
+
 # Check if the correct number of arguments is provided
 if [ "$#" -ne 2 ]; then
     echo "Usage: $0 app_name passphrase"
@@ -11,7 +15,7 @@ app_name=$1
 passphrase=$2
 
 # Find the cover file associated with the app name
-entry=$(grep "^$app_name:" passwords)
+entry=$(grep "^$app_name:" "$BASE_DIR/passwords")
 if [ -z "$entry" ]; then
     echo "App name not found."
     exit 1
@@ -23,7 +27,7 @@ if [ -z "$coverfile" ]; then
     exit 1
 fi
 
-coverfile_path="$HOME/Pictures/Harhour_and_chase/$coverfile"
+coverfile_path="$PICTURES_DIR/$coverfile"
 
 # Check if the cover file exists
 if [ ! -f "$coverfile_path" ]; then
@@ -35,7 +39,7 @@ fi
 tempfile=$(mktemp)
 
 # Get the common steghide password from the encrypted file
-steghide_password=$(./encrypt_decrypt.sh -d "$passphrase")
+steghide_password=$("$BASE_DIR/encrypt_decrypt.sh" -d "$passphrase")
 if [ $? -ne 0 ]; then
     echo "Failed to decrypt the steghide password."
     rm "$tempfile"

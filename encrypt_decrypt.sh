@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Set the base directory
+BASE_DIR="$HOME/code/WatchfulDeer"
+
 # Check if the correct number of arguments is provided
 if [ "$#" -ne 2 ]; then
     echo "Usage: $0 -e|-d passphrase"
@@ -8,8 +11,8 @@ fi
 
 option=$1
 passphrase=$2
-input_file="steghide.enc"
-output_file="steghide"
+input_file="$BASE_DIR/steghide.enc"
+output_file="$BASE_DIR/steghide"
 
 case $option in
     -e)

@@ -10,108 +10,18 @@ ROFI_THEME="$HOME/.config/rofi/styles/style_13.rasi"
 check_authentication() {
     authenticated=$("$WATCHFUL_DEER_DIR/authenticate.sh" -c)
     if [ $? -ne 0 ]; then
-        echo "Authentication required. Please authenticate."
-        "$WATCHFUL_DEER_DIR/authenticate.sh" -a
+        passphrase=$(rofi -theme "$ROFI_THEME" -password -dmenu -p "Enter the passphrase:")
+        authenticated=$("$WATCHFUL_DEER_DIR/authenticate.sh" -a "$passphrase")
         if [ $? -ne 0 ]; then
-            echo "Authentication failed. Exiting."
+            rofi -theme "$ROFI_THEME" -e "Authentication failed."
             exit 1
+        else
+            rofi -theme "$ROFI_THEME" -e "Authentication successful."
         fi
     fi
 }
 
 # Function to manage passwords
-manage_password() {
-    option=$1
-    case $option in
-        -g)
-            echo "Enter the app name:"
-            read app_name
-            echo "Enter the security level (1-4):"
-            read security_level
-            echo "Enter the passphrase:"
-            read -s passphrase
-            "$WATCHFUL_DEER_DIR/password_generation.sh" -g "$app_name" "$security_level" "$passphrase"
-            ;;
-        -a)
-            echo "Enter the app name:"
-            read app_name
-            echo "Enter the password:"
-            read -s password
-            echo "Enter the security level (1-4):"
-            read security_level
-            echo "Enter the passphrase:"
-            read -s passphrase
-            "$WATCHFUL_DEER_DIR/password_generation.sh" -a "$app_name" "$password" "$security_level" "$passphrase"
-            ;;
-        -c)
-            echo "Enter the app name:"
-            read app_name
-            echo "Enter the new password:"
-            read -s new_password
-            echo "Enter the passphrase:"
-            read -s passphrase
-            "$WATCHFUL_DEER_DIR/password_generation.sh" -c "$app_name" "$new_password" "$passphrase"
-            ;;
-        -d)
-            echo "Enter the app name:"
-            read app_name
-            echo "Enter the passphrase:"
-            read -s passphrase
-            "$WATCHFUL_DEER_DIR/password_generation.sh" -d "$app_name" "$passphrase"
-            ;;
-        *)
-            echo "Invalid option for manage_password."
-            exit 1
-            ;;
-    esac
-}
-
-# Function to retrieve password
-retrieve_password() {
-    echo "Enter the app name:"
-    read app_name
-    echo "Enter the passphrase:"
-    read -s passphrase
-    "$WATCHFUL_DEER_DIR/extract_password.sh" "$app_name" "$passphrase"
-}
-
-# Function to check expiration dates
-check_expiration() {
-    "$WATCHFUL_DEER_DIR/track_expirations.sh"
-}
-
-# Function to display the main menu with Rofi
-rofi_menu() {
-    local options="Generate Password\nAdd/Change Password\nChange Existing Password\nDelete Password\nCheck Expirations\nRetrieve Password"
-    local choice=$(echo -e "$options" | rofi -theme "$ROFI_THEME" -dmenu -p "Select an action:")
-
-    case $choice in
-        "Generate Password")
-            manage_password_rofi -g
-            ;;
-        "Add/Change Password")
-            manage_password_rofi -a
-            ;;
-        "Change Existing Password")
-            manage_password_rofi -c
-            ;;
-        "Delete Password")
-            manage_password_rofi -d
-            ;;
-        "Check Expirations")
-            check_expiration
-            ;;
-        "Retrieve Password")
-            retrieve_password_rofi
-            ;;
-        *)
-            echo "Invalid option selected."
-            exit 1
-            ;;
-    esac
-}
-
-# Function to manage passwords using Rofi
 manage_password_rofi() {
     option=$1
     case $option in
@@ -140,7 +50,7 @@ manage_password_rofi() {
             "$WATCHFUL_DEER_DIR/password_generation.sh" -d "$app_name" "$passphrase"
             ;;
         *)
-            echo "Invalid option for manage_password_rofi."
+            rofi -theme "$ROFI_THEME" -e "Invalid option for manage_password."
             exit 1
             ;;
     esac
@@ -151,6 +61,84 @@ retrieve_password_rofi() {
     app_name=$(rofi -theme "$ROFI_THEME" -dmenu -p "Enter the app name:")
     passphrase=$(rofi -theme "$ROFI_THEME" -password -dmenu -p "Enter the passphrase:")
     "$WATCHFUL_DEER_DIR/extract_password.sh" "$app_name" "$passphrase"
+}
+
+# Function to authenticate using Rofi
+authenticate_rofi() {
+    passphrase=$(rofi -theme "$ROFI_THEME" -password -dmenu -p "Enter the passphrase:")
+    authenticated=$("$WATCHFUL_DEER_DIR/authenticate.sh" -a "$passphrase")
+    if [ $? -ne 0 ]; then
+        rofi -theme "$ROFI_THEME" -e "Authentication failed."
+        exit 1
+    else
+        rofi -theme "$ROFI_THEME" -e "Authentication successful."
+    fi
+}
+
+# Function to check expiration dates using Rofi
+check_expiration_rofi() {
+    password_file="$WATCHFUL_DEER_DIR/passwords"
+    today=$(date +%Y-%m-%d)
+    week_later=$(date -d "$today + 7 days" +%Y-%m-%d)
+
+    expired_apps=()
+    expiring_soon_apps=()
+
+    while IFS=, read -r app_name coverfile expiration_date; do
+        if [[ "$expiration_date" < "$today" ]]; then
+            expired_apps+=("$app_name")
+        elif [[ "$expiration_date" < "$week_later" ]]; then
+            expiring_soon_apps+=("$app_name")
+        fi
+    done < "$password_file"
+
+    expired_apps_msg="Expired:\n$(printf "%s\n" "${expired_apps[@]}")"
+    expiring_soon_apps_msg="Expiring soon:\n$(printf "%s\n" "${expiring_soon_apps[@]}")"
+
+    if [[ ${#expired_apps[@]} -gt 0 ]]; then
+        rofi -theme "$ROFI_THEME" -e "$expired_apps_msg"
+    fi
+
+    if [[ ${#expiring_soon_apps[@]} -gt 0 ]]; then
+        rofi -theme "$ROFI_THEME" -e "$expiring_soon_apps_msg"
+    fi
+
+    echo -e "$expired_apps_msg"
+    echo -e "$expiring_soon_apps_msg"
+}
+
+# Function to display the main menu with Rofi
+rofi_menu() {
+    local options="Generate Password\nAdd/Change Password\nChange Existing Password\nDelete Password\nCheck Expirations\nRetrieve Password\nAuthenticate"
+    local choice=$(echo -e "$options" | rofi -theme "$ROFI_THEME" -dmenu -p "Select an action:")
+
+    case $choice in
+        "Generate Password")
+            manage_password_rofi -g
+            ;;
+        "Add/Change Password")
+            manage_password_rofi -a
+            ;;
+        "Change Existing Password")
+            manage_password_rofi -c
+            ;;
+        "Delete Password")
+            manage_password_rofi -d
+            ;;
+        "Check Expirations")
+            check_expiration_rofi
+            ;;
+        "Retrieve Password")
+            retrieve_password_rofi
+            ;;
+        "Authenticate")
+            authenticate_rofi
+            ;;
+        *)
+            rofi -theme "$ROFI_THEME" -e "Invalid option selected."
+            exit 1
+            ;;
+    esac
 }
 
 # Ensure the user is authenticated

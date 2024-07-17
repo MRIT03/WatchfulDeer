@@ -1,7 +1,10 @@
 #!/bin/bash
 
+# Set the base directory
+BASE_DIR="$HOME/code/WatchfulDeer"
+
 # Path to store the password list
-password_file="passwords"
+password_file="$BASE_DIR/passwords"
 
 # Function to initialize the password file if it doesn't exist
 initialize_file() {
@@ -45,7 +48,7 @@ add_password() {
 check_expirations() {
     today=$(date +%Y-%m-%d)
     week_later=$(date -d "$today + 7 days" +%Y-%m-%d)
-    
+
     expired_apps=()
     expiring_soon_apps=()
 
@@ -55,7 +58,7 @@ check_expirations() {
         elif [[ "$expiration_date" < "$week_later" ]]; then
             expiring_soon_apps+=("$app_name")
         fi
-    done < passwords
+    done < $password_file
 
     if [[ ${#expired_apps[@]} -gt 0 ]]; then
         notify-send "Expired Passwords" "The following passwords have expired: ${expired_apps[*]}"
@@ -68,6 +71,7 @@ check_expirations() {
     echo "Expired: ${expired_apps[*]}"
     echo "Expiring soon: ${expiring_soon_apps[*]}"
 }
+
 # Main logic
 case "$1" in
     add)

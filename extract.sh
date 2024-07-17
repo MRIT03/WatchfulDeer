@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Set the base directory
+BASE_DIR="$HOME/code/WatchfulDeer"
+
 # Check if the correct number of arguments is provided
 if [ "$#" -ne 2 ]; then
     echo "Usage: $0 coverfile passphrase"
@@ -14,7 +17,7 @@ passphrase=$2
 tempfile=$(mktemp)
 
 # Get the common steghide password from the encrypted file
-steghide_password=$(./encrypt_decrypt.sh -d "$passphrase")
+steghide_password=$("$BASE_DIR/encrypt_decrypt.sh" -d "$passphrase")
 if [ $? -ne 0 ]; then
     echo "Failed to decrypt the steghide password."
     rm "$tempfile"
@@ -35,4 +38,3 @@ fi
 
 # Clean up the temporary file
 rm "$tempfile"
-

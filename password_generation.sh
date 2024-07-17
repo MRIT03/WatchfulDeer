@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Set the base directories
+BASE_DIR="$HOME/code/WatchfulDeer"
+PICTURES_DIR="$HOME/Pictures/Harhour_and_chase"
+
 # Function to generate an expiration date based on security level
 generate_expiration_date() {
     case $1 in
@@ -19,27 +23,27 @@ generate_random_password() {
 
 # Function to get a random picture from available_pictures
 get_random_picture() {
-    local picture=$(shuf -n 1 available_pictures)
-    echo "$HOME/Pictures/Harhour_and_chase/$picture"
+    local picture=$(shuf -n 1 "$BASE_DIR/available_pictures")
+    echo "$PICTURES_DIR/$picture"
 }
 
 # Function to remove a picture from available_pictures
 remove_picture_from_list() {
     local picture=$1
-    grep -v "^$picture$" available_pictures > available_pictures.tmp
-    mv available_pictures.tmp available_pictures
+    grep -v "^$picture$" "$BASE_DIR/available_pictures" > "$BASE_DIR/available_pictures.tmp"
+    mv "$BASE_DIR/available_pictures.tmp" "$BASE_DIR/available_pictures"
 }
 
 # Function to add a picture back to available_pictures
 add_picture_to_list() {
     local picture=$1
-    echo $picture >> available_pictures
+    echo $picture >> "$BASE_DIR/available_pictures"
 }
 
 # Function to read the common steghide password
 read_steghide_password() {
     passphrase=$1
-    password=$(./encrypt_decrypt.sh -d "$passphrase")
+    password=$("$BASE_DIR/encrypt_decrypt.sh" -d "$passphrase")
     if [ $? -ne 0 ]; then
         echo "Failed to decrypt the steghide password."
         exit 1
@@ -58,26 +62,26 @@ generate_password() {
     local embed_password=$(read_steghide_password "$passphrase") # Use the decrypted steghide password
 
     # Check if an entry already exists for the app name
-    local entry=$(grep "^$app_name:" passwords)
+    local entry=$(grep "^$app_name:" "$BASE_DIR/passwords")
     if [ -n "$entry" ]; then
         local old_picture=$(echo $entry | cut -d':' -f2)
         # Add the old picture back to the available list
         add_picture_to_list "$old_picture"
         # Remove the old entry
-        grep -v "^$app_name:" passwords > passwords.tmp
-        mv passwords.tmp passwords
+        grep -v "^$app_name:" "$BASE_DIR/passwords" > "$BASE_DIR/passwords.tmp"
+        mv "$BASE_DIR/passwords.tmp" "$BASE_DIR/passwords"
     fi
 
     # Embed the password in the picture using the embed_password
-    ./embed.sh "$picture" "$password" "$embed_password"
+    "$BASE_DIR/embed.sh" "$picture" "$password" "$embed_password"
     if [ $? -eq 0 ]; then
         # Remove the used picture from the list
         remove_picture_from_list "$(basename $picture)"
         # Output the result
         local output="$app_name:$(basename $picture):$expiration_date"
-        echo "$output" >> passwords
+        echo "$output" >> "$BASE_DIR/passwords"
         # Send the result to track_expirations.sh
-        ./track_expirations.sh add "$output"
+        "$BASE_DIR/track_expirations.sh" add "$output"
         echo "Generated: $output"
     else
         echo "Failed to embed password in picture."
@@ -96,26 +100,26 @@ add_or_change_password() {
     local embed_password=$(read_steghide_password "$passphrase") # Use the decrypted steghide password
 
     # Check if an entry already exists for the app name
-    local entry=$(grep "^$app_name:" passwords)
+    local entry=$(grep "^$app_name:" "$BASE_DIR/passwords")
     if [ -n "$entry" ]; then
         local old_picture=$(echo $entry | cut -d':' -f2)
         # Add the old picture back to the available list
         add_picture_to_list "$old_picture"
         # Remove the old entry
-        grep -v "^$app_name:" passwords > passwords.tmp
-        mv passwords.tmp passwords
+        grep -v "^$app_name:" "$BASE_DIR/passwords" > "$BASE_DIR/passwords.tmp"
+        mv "$BASE_DIR/passwords.tmp" "$BASE_DIR/passwords"
     fi
 
     # Embed the password in the picture using the embed_password
-    ./embed.sh "$picture" "$password" "$embed_password"
+    "$BASE_DIR/embed.sh" "$picture" "$password" "$embed_password"
     if [ $? -eq 0 ]; then
         # Remove the used picture from the list
         remove_picture_from_list "$(basename $picture)"
         # Output the result
         local output="$app_name:$(basename $picture):$expiration_date"
-        echo "$output" >> passwords
+        echo "$output" >> "$BASE_DIR/passwords"
         # Send the result to track_expirations.sh
-        ./track_expirations.sh add "$output"
+        "$BASE_DIR/track_expirations.sh" add "$output"
         echo "Added/Changed: $output"
     else
         echo "Failed to embed password in picture."
@@ -128,7 +132,7 @@ change_password() {
     local app_name=$1
     local new_password=$2
     local passphrase=$3
-    local entry=$(grep "^$app_name:" passwords)
+    local entry=$(grep "^$app_name:" "$BASE_DIR/passwords")
     if [ -z "$entry" ]; then
         echo "App name not found."
         exit 1
@@ -138,7 +142,7 @@ change_password() {
     local embed_password=$(read_steghide_password "$passphrase") # Use the decrypted steghide password
 
     # Extract the old password
-    ./extract.sh "$HOME/Pictures/Harhour_and_chase/$picture" "$embed_password"
+    "$BASE_DIR/extract.sh" "$PICTURES_DIR/$picture" "$embed_password"
 
     # Add the picture back to the available list
     add_picture_to_list "$picture"
@@ -151,7 +155,7 @@ change_password() {
 delete_entry() {
     local app_name=$1
     local passphrase=$2
-    local entry=$(grep "^$app_name:" passwords)
+    local entry=$(grep "^$app_name:" "$BASE_DIR/passwords")
     if [ -z "$entry" ]; then
         echo "App name not found."
         exit 1
@@ -163,8 +167,8 @@ delete_entry() {
     add_picture_to_list "$picture"
 
     # Remove the entry from passwords
-    grep -v "^$app_name:" passwords > passwords.tmp
-    mv passwords.tmp passwords
+    grep -v "^$app_name:" "$BASE_DIR/passwords" > "$BASE_DIR/passwords.tmp"
+    mv "$BASE_DIR/passwords.tmp" "$BASE_DIR/passwords"
 }
 
 # Main script logic

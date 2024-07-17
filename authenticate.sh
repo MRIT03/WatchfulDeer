@@ -1,9 +1,12 @@
 #!/bin/bash
 
+# Set the base directory
+BASE_DIR="$HOME/code/WatchfulDeer"
+
 # File containing the bcrypt hash
-HASH_FILE="users"
+HASH_FILE="$BASE_DIR/users"
 # Log file to store the last authentication date
-AUTH_LOG_FILE="$HOME/code/WatchfulDeer/auth.log"
+AUTH_LOG_FILE="$BASE_DIR/auth.log"
 
 # Function to check if a password matches a hash
 check_password() {
@@ -47,9 +50,15 @@ is_authenticated_today() {
 }
 
 # Function to prompt for password and authenticate
-authenticate() {
+prompt_for_password() {
     read -sp "Enter your password: " password
     echo
+    authenticate "$password"
+}
+
+# Function to authenticate with a given password
+authenticate() {
+    password="$1"
 
     # Read the hash from the users file
     hash=$(cat "$HASH_FILE")
@@ -67,9 +76,26 @@ authenticate() {
 }
 
 # Main script logic
-if is_authenticated_today; then
-    echo "Already authenticated for today."
-else
-    authenticate
-fi
+case "$1" in
+    -c)
+        if is_authenticated_today; then
+            echo "Already authenticated for today."
+            exit 0
+        else
+            echo "Not authenticated for today."
+            exit 1
+        fi
+        ;;
+    -a)
+        if [ -n "$2" ]; then
+            authenticate "$2"
+        else
+            prompt_for_password
+        fi
+        ;;
+    *)
+        echo "Usage: $0 {-c | -a [passphrase]}"
+        exit 1
+        ;;
+esac
 
