@@ -5,14 +5,19 @@ BASE_DIR="$HOME/code/WatchfulDeer"
 PICTURES_DIR="$HOME/Pictures/Harhour_and_chase"
 
 # Check if the correct number of arguments is provided
-if [ "$#" -ne 2 ]; then
-    echo "Usage: $0 app_name passphrase"
+if [ "$#" -lt 2 ]; then
+    echo "Usage: $0 coverfile passphrase [-c]"
     exit 1
 fi
 
 # Assign arguments to variables
 app_name=$1
 passphrase=$2
+copy_to_clipboard=false
+
+if [ "$#" -eq 3 ] && [ "$3" == "-c" ]; then
+    copy_to_clipboard=true
+fi
 
 # Find the cover file associated with the app name
 entry=$(grep "^$app_name:" "$BASE_DIR/passwords")
@@ -45,19 +50,23 @@ if [ $? -ne 0 ]; then
     rm "$tempfile"
     exit 1
 fi
-
+echo "$steghide_password"
 # Extract the hidden text using Steghide
 steghide extract -sf "$coverfile_path" -xf "$tempfile" -p "$steghide_password"
 
 # Confirm the extraction process
 if [ $? -eq 0 ]; then
     echo "Text extracted successfully."
-    echo "Extracted text:"
-    cat "$tempfile"
+    extracted_text=$(cat "$tempfile")
+    echo "Extracted text: $extracted_text"
+    
+    if $copy_to_clipboard; then
+        echo "$extracted_text" | wl-copy
+        echo "Text copied to clipboard."
+    fi
 else
-    echo "Failed to extract text from '$coverfile_path'."
+    echo "Failed to extract text from '$coverfile'."
 fi
-
 # Clean up the temporary file
 rm "$tempfile"
 

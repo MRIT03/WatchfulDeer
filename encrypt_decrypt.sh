@@ -2,13 +2,11 @@
 
 # Set the base directory
 BASE_DIR="$HOME/code/WatchfulDeer"
-
 # Check if the correct number of arguments is provided
 if [ "$#" -ne 2 ]; then
     echo "Usage: $0 -e|-d passphrase"
     exit 1
 fi
-
 option=$1
 passphrase=$2
 input_file="$BASE_DIR/steghide.enc"
@@ -36,11 +34,14 @@ case $option in
             if [ $? -eq 0 ]; then
                 cat "$output_file"  # Output the decrypted password
                 rm "$output_file"  # Remove the plaintext file
+                exit 0
             else
                 echo "Failed to decrypt the file."
+                exit 1
             fi
         else
             echo "No file named $input_file found to decrypt."
+            exit 1
         fi
         ;;
     *)

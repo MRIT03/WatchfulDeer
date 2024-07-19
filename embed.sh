@@ -21,16 +21,16 @@ tempfile=$(mktemp)
 echo "$secret_text" > "$tempfile"
 
 # Get the common steghide password from the encrypted file
-steghide_password=$("$BASE_DIR/encrypt_decrypt.sh" -d "$passphrase")
-if [ $? -ne 0 ]; then
-    echo "Failed to decrypt the steghide password."
-    rm "$tempfile"
-    exit 1
-fi
+#steghide_password=$("$BASE_DIR/encrypt_decrypt.sh" -d "$passphrase")
+#if [ $? -ne 0 ]; then
+#   echo "Failed to decrypt the steghide password."
+#    rm "$tempfile"
+#    exit 1
+#fi
 
 # Embed the text into the cover file using Steghide
-steghide embed -cf "$coverfile" -ef "$tempfile" -p "$steghide_password"
-
+steghide embed -cf "$coverfile" -ef "$tempfile" -p "$passphrase"
+echo "the text was embedded with the following password: $passphrase"
 # Confirm the embedding process
 if [ $? -eq 0 ]; then
     echo "Text embedded successfully into $coverfile."

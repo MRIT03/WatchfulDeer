@@ -5,52 +5,88 @@ WATCHFUL_DEER_DIR="/home/riad/code/WatchfulDeer"
 
 # Set the Rofi theme file path
 ROFI_THEME="$HOME/.config/rofi/styles/style_13.rasi"
+USE_ROFI=false
+
+# Function to display messages (using Rofi if enabled)
+display_message() {
+    if $USE_ROFI; then
+        rofi -theme "$ROFI_THEME" -e "$1"
+    else
+        echo "$1"
+    fi
+}
+
+# Function to display input prompt (using Rofi if enabled)
+prompt_input() {
+    local prompt="$1"
+    if $USE_ROFI; then
+        rofi -theme "$ROFI_THEME" -dmenu -p "$prompt"
+    else
+        read -p "$prompt" input
+        echo "$input"
+    fi
+}
+
+# Function to display password prompt (using Rofi if enabled)
+prompt_password() {
+    local prompt="$1"
+    if $USE_ROFI; then
+        rofi -theme "$ROFI_THEME" -password -dmenu -p "$prompt"
+    else
+        read -sp "$prompt" input
+        echo "$input"
+    fi
+}
 
 # Function to check user authentication
 check_authentication() {
     authenticated=$("$WATCHFUL_DEER_DIR/authenticate.sh" -c)
     if [ $? -ne 0 ]; then
-        passphrase=$(rofi -theme "$ROFI_THEME" -password -dmenu -p "Enter the passphrase:")
+        passphrase=$(prompt_password "Enter the passphrase:")
         authenticated=$("$WATCHFUL_DEER_DIR/authenticate.sh" -a "$passphrase")
         if [ $? -ne 0 ]; then
-            rofi -theme "$ROFI_THEME" -e "Authentication failed."
+            display_message "Authentication failed."
             exit 1
         else
-            rofi -theme "$ROFI_THEME" -e "Authentication successful."
+            display_message "Authentication successful."
         fi
     fi
 }
 
 # Function to manage passwords
-manage_password_rofi() {
+manage_password() {
     option=$1
     case $option in
         -g)
-            app_name=$(rofi -theme "$ROFI_THEME" -dmenu -p "Enter the app name:")
-            security_level=$(rofi -theme "$ROFI_THEME" -dmenu -p "Enter the security level (1-4):")
-            passphrase=$(rofi -theme "$ROFI_THEME" -password -dmenu -p "Enter the passphrase:")
-            "$WATCHFUL_DEER_DIR/password_generation.sh" -g "$app_name" "$security_level" "$passphrase"
+            app_name=$(prompt_input "Enter the app name:")
+            security_level=$(prompt_input "Enter the security level (1-4):")
+            passphrase=$(prompt_password "Enter the passphrase:")
+            result=$("$WATCHFUL_DEER_DIR/password_generation.sh" -g "$app_name" "$security_level" "$passphrase")
+            display_message "$result"
             ;;
         -a)
-            app_name=$(rofi -theme "$ROFI_THEME" -dmenu -p "Enter the app name:")
-            password=$(rofi -theme "$ROFI_THEME" -password -dmenu -p "Enter the password:")
-            security_level=$(rofi -theme "$ROFI_THEME" -dmenu -p "Enter the security level (1-4):")
-            passphrase=$(rofi -theme "$ROFI_THEME" -password -dmenu -p "Enter the passphrase:")
-            "$WATCHFUL_DEER_DIR/password_generation.sh" -a "$app_name" "$password" "$security_level" "$passphrase"
+            app_name=$(prompt_input "Enter the app name:")
+            password=$(prompt_password "Enter the password:")
+            security_level=$(prompt_input "Enter the security level (1-4):")
+            passphrase=$(prompt_password "Enter the passphrase:")
+            result=$("$WATCHFUL_DEER_DIR/password_generation.sh" -a "$app_name" "$password" "$security_level" "$passphrase")
+            display_message "$result"
             ;;
         -c)
-            app_name=$(rofi -theme "$ROFI_THEME" -dmenu -p "Enter the app name:")
-            new_password=$(rofi -theme "$ROFI_THEME" -password -dmenu -p "Enter the new password:")
-            passphrase=$(rofi -theme "$ROFI_THEME" -password -dmenu -p "Enter the passphrase:")
-            "$WATCHFUL_DEER_DIR/password_generation.sh" -c "$app_name" "$new_password" "$passphrase"
+            app_name=$(prompt_input "Enter the app name:")
+            new_password=$(prompt_password "Enter the new password:")
+            passphrase=$(prompt_password "Enter the passphrase:")
+            result=$("$WATCHFUL_DEER_DIR/password_generation.sh" -c "$app_name" "$new_password" "$passphrase")
+            display_message "$result"
             ;;
         -d)
-            app_name=$(rofi -theme "$ROFI_THEME" -dmenu -p "Enter the app name:")
-            passphrase=$(rofi -theme "$ROFI_THEME" -password -dmenu -p "Enter the passphrase:")
-            "$WATCHFUL_DEER_DIR/password_generation.sh" -d "$app_name" "$passphrase"
+            app_name=$(prompt_input "Enter the app name:")
+            passphrase=$(prompt_password "Enter the passphrase:")
+            result=$("$WATCHFUL_DEER_DIR/password_generation.sh" -d "$app_name" "$passphrase")
+            display_message "$result"
             ;;
         *)
-            rofi -theme "$ROFI_THEME" -e "Invalid option for manage_password."
+            display_message "Invalid option for manage_password."
             exit 1
             ;;
     esac
@@ -58,20 +94,21 @@ manage_password_rofi() {
 
 # Function to retrieve password using Rofi
 retrieve_password_rofi() {
-    app_name=$(rofi -theme "$ROFI_THEME" -dmenu -p "Enter the app name:")
-    passphrase=$(rofi -theme "$ROFI_THEME" -password -dmenu -p "Enter the passphrase:")
-    "$WATCHFUL_DEER_DIR/extract_password.sh" "$app_name" "$passphrase"
+    app_name=$(prompt_input "Enter the app name:")
+    passphrase=$(prompt_password "Enter the passphrase:")
+    result=$("$WATCHFUL_DEER_DIR/extract_password.sh" "$app_name" "$passphrase" -c)
+    display_message "$result"
 }
 
 # Function to authenticate using Rofi
 authenticate_rofi() {
-    passphrase=$(rofi -theme "$ROFI_THEME" -password -dmenu -p "Enter the passphrase:")
+    passphrase=$(prompt_password "Enter the passphrase:")
     authenticated=$("$WATCHFUL_DEER_DIR/authenticate.sh" -a "$passphrase")
     if [ $? -ne 0 ]; then
-        rofi -theme "$ROFI_THEME" -e "Authentication failed."
+        display_message "Authentication failed."
         exit 1
     else
-        rofi -theme "$ROFI_THEME" -e "Authentication successful."
+        display_message "Authentication successful."
     fi
 }
 
@@ -96,11 +133,11 @@ check_expiration_rofi() {
     expiring_soon_apps_msg="Expiring soon:\n$(printf "%s\n" "${expiring_soon_apps[@]}")"
 
     if [[ ${#expired_apps[@]} -gt 0 ]]; then
-        rofi -theme "$ROFI_THEME" -e "$expired_apps_msg"
+        display_message "$expired_apps_msg"
     fi
 
     if [[ ${#expiring_soon_apps[@]} -gt 0 ]]; then
-        rofi -theme "$ROFI_THEME" -e "$expiring_soon_apps_msg"
+        display_message "$expiring_soon_apps_msg"
     fi
 
     echo -e "$expired_apps_msg"
@@ -135,7 +172,52 @@ rofi_menu() {
             authenticate_rofi
             ;;
         *)
-            rofi -theme "$ROFI_THEME" -e "Invalid option selected."
+            display_message "Invalid option selected."
+            exit 1
+            ;;
+    esac
+}
+
+# Function to manage passwords using Rofi
+manage_password_rofi() {
+    option=$1
+    case $option in
+        -g)
+            app_name=$(prompt_input "Enter the app name:")
+            echo "done 1"
+            security_level=$(prompt_input "Enter the security level (1-4):")
+            echo "done 2"
+            passphrase=$(prompt_password "Enter the passphrase:")
+            echo "$passphrase"
+            "$WATCHFUL_DEER_DIR/password_generation.sh" -g "$app_name" "$security_level" "$passphrase"
+            if [ $? -ne 0 ]; then
+                echo "Failed to generate password. Incorrect passphrase."
+                exit 1
+            fi
+            ;;
+        -a)
+            app_name=$(prompt_input "Enter the app name:")
+            password=$(prompt_password "Enter the password:")
+            security_level=$(prompt_input "Enter the security level (1-4):")
+            passphrase=$(prompt_password "Enter the passphrase:")
+            result=$("$WATCHFUL_DEER_DIR/password_generation.sh" -a "$app_name" "$password" "$security_level" "$passphrase")
+            display_message "$result"
+            ;;
+        -c)
+            app_name=$(prompt_input "Enter the app name:")
+            new_password=$(prompt_password "Enter the new password:")
+            passphrase=$(prompt_password "Enter the passphrase:")
+            result=$("$WATCHFUL_DEER_DIR/password_generation.sh" -c "$app_name" "$new_password" "$passphrase")
+            display_message "$result"
+            ;;
+        -d)
+            app_name=$(prompt_input "Enter the app name:")
+            passphrase=$(prompt_password "Enter the passphrase:")
+            result=$("$WATCHFUL_DEER_DIR/password_generation.sh" -d "$app_name" "$passphrase")
+            display_message "$result"
+            ;;
+        *)
+            display_message "Invalid option for manage_password_rofi."
             exit 1
             ;;
     esac
@@ -166,6 +248,7 @@ case $option in
         retrieve_password
         ;;
     -ro)
+        USE_ROFI=true
         rofi_menu
         ;;
     *)
