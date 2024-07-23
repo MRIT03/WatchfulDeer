@@ -15,7 +15,7 @@ initialize_file() {
 
 # Function to sort passwords by expiration date
 sort_passwords() {
-    sort -t, -k3 $password_file -o $password_file
+    sort -t, -k4 $password_file -o $password_file
 }
 
 # Function to add or update a password entry
@@ -24,15 +24,16 @@ add_password() {
 
     local new_entry="$1"
     local app_name=$(echo "$new_entry" | awk -F, '{print $1}' | xargs | tr '[:upper:]' '[:lower:]')
-    local file_where_password_is_stored=$(echo "$new_entry" | awk -F, '{print $2}' | xargs)
-    local expiration_date=$(echo "$new_entry" | awk -F, '{print $3}' | xargs)
+    local user_name=$(echo "$new_entry" | awk -F, '{print $2}' | xargs | tr '[:upper:]' '[:lower:]')
+    local file_where_password_is_stored=$(echo "$new_entry" | awk -F, '{print $3}' | xargs)
+    local expiration_date=$(echo "$new_entry" | awk -F, '{print $4}' | xargs)
 
-    # Check if the app already exists (case insensitive)
-    local existing_entry=$(grep -i "^$app_name," $password_file)
+    # Check if the app and user already exist (case insensitive)
+    local existing_entry=$(grep -i "^$app_name:$user_name," $password_file)
 
     if [[ -n "$existing_entry" ]]; then
         # Update the existing entry
-        sed -i "s/^$app_name,.*/$new_entry/I" $password_file
+        sed -i "s/^$app_name:$user_name,.*/$new_entry/I" $password_file
         echo "Updated: $new_entry"
     else
         # Add the new entry
@@ -52,11 +53,11 @@ check_expirations() {
     expired_apps=()
     expiring_soon_apps=()
 
-    while IFS=: read -r app_name coverfile expiration_date; do
+    while IFS=: read -r app_name user_name coverfile expiration_date; do
         if [[ "$expiration_date" < "$today" ]]; then
-            expired_apps+=("$app_name")
+            expired_apps+=("$app_name:$user_name")
         elif [[ "$expiration_date" < "$week_later" ]]; then
-            expiring_soon_apps+=("$app_name")
+            expiring_soon_apps+=("$app_name:$user_name")
         fi
     done < $password_file
 

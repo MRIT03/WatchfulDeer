@@ -42,13 +42,17 @@ prompt_password() {
 check_authentication() {
     authenticated=$("$WATCHFUL_DEER_DIR/authenticate.sh" -c)
     if [ $? -ne 0 ]; then
-        passphrase=$(prompt_password "Enter the passphrase:")
-        authenticated=$("$WATCHFUL_DEER_DIR/authenticate.sh" -a "$passphrase")
-        if [ $? -ne 0 ]; then
-            display_message "Authentication failed."
-            exit 1
+        if $USE_ROFI; then
+            authenticate_rofi
         else
-            display_message "Authentication successful."
+            passphrase=$(prompt_password "Enter the passphrase:")
+            authenticated=$("$WATCHFUL_DEER_DIR/authenticate.sh" -a "$passphrase")
+            if [ $? -ne 0 ]; then
+                display_message "Authentication failed."
+                exit 1
+            else
+                display_message "Authentication successful."
+            fi
         fi
     fi
 }
@@ -59,30 +63,34 @@ manage_password() {
     case $option in
         -g)
             app_name=$(prompt_input "Enter the app name:")
+            user_name=$(prompt_input "Enter the user name:")
             security_level=$(prompt_input "Enter the security level (1-4):")
             passphrase=$(prompt_password "Enter the passphrase:")
-            result=$("$WATCHFUL_DEER_DIR/password_generation.sh" -g "$app_name" "$security_level" "$passphrase")
+            result=$("$WATCHFUL_DEER_DIR/password_generation.sh" -g "$app_name" "$user_name" "$security_level" "$passphrase")
             display_message "$result"
             ;;
         -a)
             app_name=$(prompt_input "Enter the app name:")
+            user_name=$(prompt_input "Enter the user name:")
             password=$(prompt_password "Enter the password:")
             security_level=$(prompt_input "Enter the security level (1-4):")
             passphrase=$(prompt_password "Enter the passphrase:")
-            result=$("$WATCHFUL_DEER_DIR/password_generation.sh" -a "$app_name" "$password" "$security_level" "$passphrase")
+            result=$("$WATCHFUL_DEER_DIR/password_generation.sh" -a "$app_name" "$user_name" "$password" "$security_level" "$passphrase")
             display_message "$result"
             ;;
         -c)
             app_name=$(prompt_input "Enter the app name:")
+            user_name=$(prompt_input "Enter the user name:")
             new_password=$(prompt_password "Enter the new password:")
             passphrase=$(prompt_password "Enter the passphrase:")
-            result=$("$WATCHFUL_DEER_DIR/password_generation.sh" -c "$app_name" "$new_password" "$passphrase")
+            result=$("$WATCHFUL_DEER_DIR/password_generation.sh" -c "$app_name" "$user_name" "$new_password" "$passphrase")
             display_message "$result"
             ;;
         -d)
             app_name=$(prompt_input "Enter the app name:")
+            user_name=$(prompt_input "Enter the user name:")
             passphrase=$(prompt_password "Enter the passphrase:")
-            result=$("$WATCHFUL_DEER_DIR/password_generation.sh" -d "$app_name" "$passphrase")
+            result=$("$WATCHFUL_DEER_DIR/password_generation.sh" -d "$app_name" "$user_name" "$passphrase")
             display_message "$result"
             ;;
         *)
@@ -95,8 +103,9 @@ manage_password() {
 # Function to retrieve password using Rofi
 retrieve_password_rofi() {
     app_name=$(prompt_input "Enter the app name:")
+    user_name=$(prompt_input "Enter the user name:")
     passphrase=$(prompt_password "Enter the passphrase:")
-    result=$("$WATCHFUL_DEER_DIR/extract_password.sh" "$app_name" "$passphrase" -c)
+    result=$("$WATCHFUL_DEER_DIR/extract_password.sh" "$app_name" "$user_name" "$passphrase" -c)
     display_message "$result"
 }
 
@@ -121,11 +130,11 @@ check_expiration_rofi() {
     expired_apps=()
     expiring_soon_apps=()
 
-    while IFS=, read -r app_name coverfile expiration_date; do
+    while IFS=, read -r app_name user_name coverfile expiration_date; do
         if [[ "$expiration_date" < "$today" ]]; then
-            expired_apps+=("$app_name")
+            expired_apps+=("$app_name:$user_name")
         elif [[ "$expiration_date" < "$week_later" ]]; then
-            expiring_soon_apps+=("$app_name")
+            expiring_soon_apps+=("$app_name:$user_name")
         fi
     done < "$password_file"
 
@@ -146,6 +155,7 @@ check_expiration_rofi() {
 
 # Function to display the main menu with Rofi
 rofi_menu() {
+    check_authentication
     local options="Generate Password\nAdd/Change Password\nChange Existing Password\nDelete Password\nCheck Expirations\nRetrieve Password\nAuthenticate"
     local choice=$(echo -e "$options" | rofi -theme "$ROFI_THEME" -dmenu -p "Select an action:")
 
@@ -184,36 +194,37 @@ manage_password_rofi() {
     case $option in
         -g)
             app_name=$(prompt_input "Enter the app name:")
-            echo "done 1"
+            user_name=$(prompt_input "Enter the user name:")
             security_level=$(prompt_input "Enter the security level (1-4):")
-            echo "done 2"
             passphrase=$(prompt_password "Enter the passphrase:")
-            echo "$passphrase"
-            "$WATCHFUL_DEER_DIR/password_generation.sh" -g "$app_name" "$security_level" "$passphrase"
+            "$WATCHFUL_DEER_DIR/password_generation.sh" -g "$app_name" "$user_name" "$security_level" "$passphrase"
             if [ $? -ne 0 ]; then
-                echo "Failed to generate password. Incorrect passphrase."
+                display_message "Failed to generate password. Incorrect passphrase."
                 exit 1
             fi
             ;;
         -a)
             app_name=$(prompt_input "Enter the app name:")
+            user_name=$(prompt_input "Enter the user name:")
             password=$(prompt_password "Enter the password:")
             security_level=$(prompt_input "Enter the security level (1-4):")
             passphrase=$(prompt_password "Enter the passphrase:")
-            result=$("$WATCHFUL_DEER_DIR/password_generation.sh" -a "$app_name" "$password" "$security_level" "$passphrase")
+            result=$("$WATCHFUL_DEER_DIR/password_generation.sh" -a "$app_name" "$user_name" "$password" "$security_level" "$passphrase")
             display_message "$result"
             ;;
         -c)
             app_name=$(prompt_input "Enter the app name:")
+            user_name=$(prompt_input "Enter the user name:")
             new_password=$(prompt_password "Enter the new password:")
             passphrase=$(prompt_password "Enter the passphrase:")
-            result=$("$WATCHFUL_DEER_DIR/password_generation.sh" -c "$app_name" "$new_password" "$passphrase")
+            result=$("$WATCHFUL_DEER_DIR/password_generation.sh" -c "$app_name" "$user_name" "$new_password" "$passphrase")
             display_message "$result"
             ;;
         -d)
             app_name=$(prompt_input "Enter the app name:")
+            user_name=$(prompt_input "Enter the user name:")
             passphrase=$(prompt_password "Enter the passphrase:")
-            result=$("$WATCHFUL_DEER_DIR/password_generation.sh" -d "$app_name" "$passphrase")
+            result=$("$WATCHFUL_DEER_DIR/password_generation.sh" -d "$app_name" "$user_name" "$passphrase")
             display_message "$result"
             ;;
         *)
@@ -223,28 +234,31 @@ manage_password_rofi() {
     esac
 }
 
-# Ensure the user is authenticated
-check_authentication
-
 # Parse command-line options
 option=$1
 case $option in
     -pg|-gp)
+        check_authentication
         manage_password -g
         ;;
     -pa|-ap)
+        check_authentication
         manage_password -a
         ;;
     -pc|-cp)
+        check_authentication
         manage_password -c
         ;;
     -pd|-dp)
+        check_authentication
         manage_password -d
         ;;
     -pe|-ep)
+        check_authentication
         check_expiration
         ;;
     -pr|-rp)
+        check_authentication
         retrieve_password
         ;;
     -ro)
